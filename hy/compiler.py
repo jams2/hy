@@ -1605,6 +1605,36 @@ class HyASTCompiler(object):
 
         return args_ast, args_defaults, ret
 
+    @special(["let^"], [brackets(many(NASYM + FORM)), many(FORM)])
+    def compile_let(self, expr, root, varlist, body):
+        ret = Result()
+        name = self.get_anon_var()
+        params, args = zip(*varlist[0])
+
+        params, _, ret = self._compile_arguments_set(
+            map(lambda x: (None, x), params), False, ret)
+        params_ast = ast.arguments(
+            args=params,
+            defaults=[],
+            vararg=None,
+            posonlyargs=[],
+            kwonlyargs=[],
+            kw_defaults=[],
+            kwarg=None,
+        )
+        body = self._compile_branch(body)
+        if body.expr:
+            body += asty.Return(body.expr, value=body.expr)
+        ret += asty.FunctionDef(
+            expr,
+            name=name,
+            args=params_ast,
+            body=body.stmts or [asty.Pass(expr)],
+            decorator_list=[],
+            returns=None,
+        )
+        return ret + self.compile_expression(HyExpression([HySymbol(name), *args]))
+
     @special("return", [maybe(FORM)])
     def compile_return(self, expr, root, arg):
         ret = Result()
